@@ -1,6 +1,6 @@
 "use client";
 
-import { useGLTF, useScroll } from "@react-three/drei";
+import { useGLTF, useScroll, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
@@ -13,19 +13,24 @@ export default function SodaCanScene({ flavor }: { flavor: Flavor }) {
 
   const { scene } = useGLTF("/soda_can.glb");
 
+  // Load the texture for the red can
+  const redTexture = useTexture("/red_label.jpg");
+  redTexture.flipY = false;
+  redTexture.colorSpace = THREE.SRGBColorSpace;
+
   // Clone the scene so we don't mutate the cached original
   const clonedScene = useMemo(() => scene.clone(), [scene]);
 
   // Flavor colors
   const colors = useMemo(() => ({
-    red: new THREE.Color("#ef4444"),
+    red: new THREE.Color("#ffffff"), // white so the red texture shows correctly
     green: new THREE.Color("#22c55e"),
     orange: new THREE.Color("#f97316"),
   }), []);
 
   const targetColor = colors[flavor];
 
-  // Set initial material properties
+  // Set initial material properties and update on flavor change
   useLayoutEffect(() => {
     clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -36,12 +41,20 @@ export default function SodaCanScene({ flavor }: { flavor: Flavor }) {
           mat.roughness = 0.15;
           // Clone material to avoid modifying the cached GLTF material
           mesh.material = mat.clone(); 
-          (mesh.material as THREE.MeshStandardMaterial).color.copy(targetColor);
+          
+          const newMat = mesh.material as THREE.MeshStandardMaterial;
+          if (flavor === "red") {
+            newMat.map = redTexture;
+          } else {
+            newMat.map = null;
+          }
+          newMat.needsUpdate = true;
+          newMat.color.copy(targetColor);
         }
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clonedScene]);
+  }, [clonedScene, flavor, redTexture]);
 
   useFrame((state) => {
     const offset = scroll.offset; // 0 to 1
@@ -113,3 +126,4 @@ export default function SodaCanScene({ flavor }: { flavor: Flavor }) {
 }
 
 useGLTF.preload("/soda_can.glb");
+useTexture.preload("/red_label.jpg");
